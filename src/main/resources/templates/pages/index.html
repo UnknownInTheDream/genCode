@@ -1,0 +1,87 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+        "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html>
+<head>
+    <title>目录</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"/>
+    <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" type="text/css" href="public/css/ext-all.css"/>
+    <link rel="stylesheet" type="text/css" href="public/css/ext-zh_CN.css"/>
+    <script type="text/javascript" src="public/js/ext-all.js"></script>
+    <script type="text/javascript" src="public/js/ext-lang-zh_CN.js"></script>
+    <script type="text/javascript" src="public/js/base.js"></script>
+
+    <style>
+        li {
+            cursor: pointer;
+            font-size: 20px;
+            list-style: none;
+        }
+
+        span {
+            margin-left: 40px;
+            cursor: pointer;
+            font-size: 20px;
+            list-style: none;
+        }
+
+        a {
+            font-size: 16px;
+            padding: auto;
+            color: dodgerblue;
+        }
+
+        .list {
+            float: left;
+            width: 20%;
+        }
+
+    </style>
+</head>
+<body>
+<div class="list">
+    <span>代码生成系统</span>
+    <ul>
+        <li><a onclick="_manageDataBaseInfo()">管理数据源</a></li>
+        <li><a onclick="_manageGenerate()">代码生成</a></li>
+        <li><a onclick="_manageGenerateByTable()">根据表生成存储过程</a></li>
+    </ul>
+    <span>缓存管理</span>
+    <ul>
+        <li><a onclick="_caches()">/caches 获取全部数据缓存key</a></li>
+        <li>/caches/{key} 获取指定缓存</li>
+        <li><a onclick="_dataSourceCaches()">/dataSourceCaches 获取当前已有的连接池</a></li>
+    </ul>
+    <ul>
+        <li><a onclick="_druid()">druid监控</a></li>
+    </ul>
+</div>
+
+<script>
+    function _druid() {
+        window.open('/gen/druid/index.html');
+    }
+
+    function _manageDataBaseInfo() {
+        window.open('/gen/manageDataBaseInfo');
+    }
+
+    function _manageGenerate() {
+        window.open('/gen/manageGenerate');
+    }
+
+    function _caches() {
+        window.open('/gen/caches');
+    }
+
+    function _dataSourceCaches() {
+        window.open('/gen/dataSourceCaches');
+    }
+
+    function _manageGenerateByTable() {
+        window.open('/gen/manageGenerateByTable');
+    }
+</script>
+</body>
+</html>
