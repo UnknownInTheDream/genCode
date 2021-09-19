@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>代码生成</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"/>
+    <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" type="text/css" href="public/css/ext-all.css"/>
+    <link rel="stylesheet" type="text/css" href="public/css/ext-zh_CN.css"/>
+    <link rel="stylesheet" type="text/css" href="public/css/util/changeRowClass.css"/>
+    <script type="text/javascript" src="public/js/ext-all.js"></script>
+    <script type="text/javascript" src="public/js/ext-lang-zh_CN.js"></script>
+    <script type="text/javascript" src="public/js/base.js"></script>
+    <script type="text/javascript" src="public/js/store/genProcedureModelType.js"></script>
+    <script type="text/javascript" src="public/js/store/nameConventType.js"></script>
+    <script type="text/javascript" src="public/js/store/temporaryStorageStore.js"></script>
+    <script type="text/javascript" src="public/js/ajax/clearCaches.js"></script>
+    <script type="text/javascript" src="public/js/util/changeRowClass.js"></script>
+</head>
+<body>
+<script>
+    Ext.onReady(function () {
+        Ext.getBody().mask('加载中...');
+
+        //数据源名称
+        var dataSourceStore = Ext.create('Ext.data.Store', {
+            storeId: 'dataSourceStore',
+            autoLoad: false,//true为自动加载
+            loading: false,//自动加载时必须为true
+            pageSize: -1,
+            fields: ['ID', 'URL', 'DRIVER', 'USERNAME', 'PASSWORD', 'NAME'],
+            proxy: {
+                url: '/gen/selectDataBaseInfo',
+                type: 'ajax',
+                async: false,
+                actionMethods: {
+                    read: 'GET'
+                },
+                extraParams: {},
+                reader: {
+                    type: 'json',
+                    root: 'result'
+                }
+            },
+            listeners: {
+                load: function (store, records, successful, eOpts) {
+                    Ext.getCmp('dataSource').select(store.first());
+                }
+            }
+        });
+
+        //存储过程名称Store
+        var proceduresStore = Ext.create('Ext.data.Store', {
+            storeId: 'proceduresStore',
+            autoLoad: false,//true为自动加载
+            loading: false,//自动加载时必须为true
+            pageSize: -1,
+            fields: ['NAME', 'LAST_UPDATE_TIME', 'STATUS'],
+            proxy: {
+                url: '/gen/selectProcedures',
+                type: 'ajax',
+                async: false,
+                actionMethods: {
+                    read: 'GET'
+                },
+                extraParams: {},
+                reader: {
+                    type: 'json',
+                    root: 'result'
+                }
+            }
+        });
+
+        //存储过程名称过滤Store
+        var proceduresFilterStore = Ext.create('Ext.data.Store', {
+            storeId: 'proceduresFilterStore',
+            autoLoad: false,
+            fields: ['NAME', 'LAST_UPDATE_TIME', 'STATUS']
+        });
+
+        var westFormPanel = Ext.create('Ext.form.Panel', {
+            id: 'westFormPanel',
+            layout: 'column',
+            frame: true,
+            border: false,
+            defaults: {
+                labelAlign: 'right',
+                labelWidth: 100,
+                inputWidth: 140,
+                margin: '4,0,0,0'
+            },
+            items: [{
+                xtype: 'button',
+                text: '查询',
+                icon: 'public/image/btn/search.png',
+                handler: _proceduresFilter
+            }, {
+                xtype: 'button',
+                text: '清除缓存',
+                icon: 'public/image/btn/refresh.png',
+                handler: _clearProceduresCache
+            }, {
+                xtype: 'button',
+                text: '暂存',
+                icon: 'public/image/btn/add.png',
+                handler: _temporaryStorage
+            }, {
+                xtype: 'button',
+                text: '查看暂存',
+                icon: 'public/image/btn/view.png',
+                handler: _viewTemporaryStorage
+            }, {
+                xtype: 'combo',
+                queryMode: 'local',
+                store: dataSourceStore,
+                id: 'dataSource',
+                valueField: 'NAME',
+                displayField: 'NAME',
+                fieldLabel: '数据源名称',
+                style: 'clear:both',
+                forceSelection: true,
+                listeners: {
+                    select: function (combo, records) {
+                        Ext.getCmp("procedure").setValue("");
+                        _selectProcedures();
+                        _proceduresFilter();
+                        _emptyTemporaryStorage();
+                    }
+                }
+            }, {
+                xtype: 'textfield',
+                id: 'procedure',
+                fieldLabel: '存储过程名称',
+                listeners: {
+                    specialKey: function (field, e) {
+                        if (e.getKey() === Ext.EventObject.ENTER) {
+                            _proceduresFilter();
+                        }
+                    }
+                }
+            }]
+        });
+
+        var eastFormPanel = Ext.create('Ext.form.Panel', {
+            id: 'eastFormPanel',
+            layout: 'column',
+            frame: true,
+            border: false,
+            defaults: {
+                labelAlign: 'right',
+                labelWidth: 100,
+                inputWidth: 180,
+                margin: '4,0,0,0'
+            },
+            items: [{
+                xtype: 'button',
+                text: '生成',
+                icon: 'public/image/btn/add.png',
+                handler: _genProcedure
+            }, {
+                xtype: 'button',
+                text: '一键生成',
+                icon: 'public/image/btn/add.png',
+                handler: _onekeyGenProcedure
+            }, {
+                xtype: 'textfield',
+                id: 'moduleName',
+                beforeLabelTextTpl: required,
+                labelWidth: 80,
+                fieldLabel: '模块名称',
+                style: 'clear:both',
+                emptyText: '符合驼峰规范， 如: codeInfo'
+            }, {
+                xtype: 'combo',
+                queryMode: 'local',
+                store: genProcedureModelTypeStore,
+                id: 'genProcedureModelType',
+                inputWidth: 160,
+                valueField: 'CODE_',
+                displayField: 'NAME_',
+                fieldLabel: '生成代码模版',
+                forceSelection: true,
+                value: '4'
+            }, {
+                xtype: 'combo',
+                queryMode: 'local',
+                store: nameConventTypeStore,
+                labelWidth: 70,
+                inputWidth: 140,
+                id: 'nameConventType',
+                valueField: 'CODE_',
+                displayField: 'NAME_',
+                fieldLabel: '规范名称',
+                forceSelection: true,
+                value: '2'
+            }, {
+                xtype: 'textfield',
+                id: 'packageName',
+                fieldLabel: '包名',
+                labelWidth: 50,
+                inputWidth: 140,
+                beforeLabelTextTpl: required,
+                value: 'cn.newangels.',
+                emptyText: '如: cn.newangels.gen'
+            }, {
+                xtype: 'textfield',
+                id: 'author',
+                fieldLabel: '作者',
+                labelWidth: 50,
+                inputWidth: 100,
+                value: 'admin',
+                emptyText: '如: admin'
+            }]
+        });
+
+        var procedureInfoFormPanel = Ext.create('Ext.form.Panel', {
+            id: 'procedureInfoFormPanel',
+            layout: 'column',
+            frame: true,
+            border: false,
+            items: [{
+                xtype: 'textareafield',
+                width: document.documentElement.clientWidth * 0.65,
+                height: document.documentElement.clientHeight - 100,
+                // minWidth: 1240,//默认环境1960
+                id: 'procedureInfo',
+            }, {
+                xtype: 'displayfield',
+                margin: '0 0 0 40',
+                value: '存储过程全查询缓存时间为永久, 带条件的结果缓存30分钟, 如果需要清除缓存请点击清除缓存按钮, 存储过程详情信息属于前台缓存, 需要关闭页面重进, 如有问题请联系管理员或开发人员'
+            }]
+        });
+
+        //存储过程名称gird
+        var proceduresPanel = Ext.create('Ext.grid.Panel', {
+            id: 'proceduresPanel',
+            store: proceduresFilterStore,
+            //title: '存储过程名称',
+            columnLines: true,
+            frame: true,
+            selModel: {
+                selType: 'checkboxmodel',
+                mode: 'SIMPLE'
+            },
+            columns: [{
+                xtype: 'rownumberer',
+                align: 'center',
+                width: 50
+            }, {
+                text: '存储过程名称',
+                flex: 1,
+                minWidth: 200,
+                dataIndex: 'NAME'
+            }, {
+                text: '最后修改时间',
+                width: 150,
+                dataIndex: 'LAST_UPDATE_TIME'
+            }],
+            listeners: {
+                itemdblclick: function (view, record, item, index, e, eOpts) {
+                    _loadProcedureInfo(record.data.NAME);
+                }
+            },
+            viewConfig: {
+                emptyText: '<div style="text-align: center; padding-top: 50px; font: italic bold 20px Microsoft YaHei;">没有数据</div>',
+                enableTextSelection: true,
+                getRowClass: _changeInValidRowClass
+            }
+        });
+
+        var westPanel = Ext.create('Ext.Panel', {
+            // title:'存储过程名称',
+            id: 'westPanel',
+            layout: 'border',
+            defaults: {
+                border: false
+            },
+            items: [{
+                region: 'north',
+                layout: 'fit',
+                items: [westFormPanel]
+            }, {
+                region: 'center',
+                layout: 'fit',
+                items: [proceduresPanel]
+            }]
+        });
+
+        var eastPanel = Ext.create('Ext.Panel', {
+            // title:'存储过程信息',
+            id: 'eastPanel',
+            layout: 'border',
+            defaults: {
+                border: false
+            },
+            items: [{
+                region: 'north',
+                layout: 'fit',
+                items: [eastFormPanel]
+            }, {
+                region: 'center',
+                layout: 'fit',
+                items: [procedureInfoFormPanel]
+            }]
+        });
+
+        Ext.create('Ext.container.Viewport', {
+            layout: {
+                type: 'border',
+                regionWeights: {
+                    west: 1,
+                    north: -1,
+                    south: -1,
+                    east: 1
+                }
+            },
+            defaults: {
+                border: false
+            },
+            items: [{
+                region: 'west',
+                width: '35%',
+                layout: 'fit',
+                items: [westPanel]
+            }, {
+                region: 'center',
+                layout: 'fit',
+                items: [eastPanel]
+            }]
+        });
+
+        _init();
+    });
+
+    function _init() {
+        for (var i = 0; i < Ext.data.StoreManager.getCount(); i++) {
+            if (Ext.data.StoreManager.getAt(i).isLoading()) {
+                return;
+            }
+        }
+
+        _selectdataSource();
+        Ext.getBody().unmask();
+    }
+
+    //查询数据源
+    function _selectdataSource() {
+        var dataSourceStore = Ext.data.StoreManager.lookup('dataSourceStore');
+        dataSourceStore.proxy.extraParams = {};
+        dataSourceStore.load();
+    }
+
+    //查询存储过程名称
+    function _selectProcedures() {
+        var proceduresStore = Ext.data.StoreManager.lookup('proceduresStore');
+        proceduresStore.proxy.extraParams = {
+            'url': Ext.getCmp('dataSource').valueModels[0].data.URL,
+            'driver': Ext.getCmp('dataSource').valueModels[0].data.DRIVER,
+            'userName': Ext.getCmp('dataSource').valueModels[0].data.USERNAME,
+            'password': Ext.getCmp('dataSource').valueModels[0].data.PASSWORD,
+            'name': Ext.getCmp('procedure').getValue(),
+        };
+        proceduresStore.load();
+    }
+
+    //过滤
+    function _proceduresFilter() {
+        var proceduresStore = Ext.data.StoreManager.lookup('proceduresStore');
+        var proceduresFilterStore = Ext.data.StoreManager.lookup('proceduresFilterStore');
+        //数据为空初始化
+        if (proceduresStore.data.items.length === 0) {
+            _selectProcedures();
+        }
+
+        proceduresStore.filter('NAME', new RegExp(Ext.getCmp('procedure').getValue(), 'i'));
+        proceduresFilterStore.removeAll();
+        proceduresFilterStore.add(proceduresStore.getRange());
+        proceduresStore.clearFilter();
+    }
+
+    //加载存储过程信息
+    function _loadProcedureInfo(procedureName) {
+        var value = sessionStorage.getItem(Ext.getCmp('dataSource').valueModels[0].data.ID + procedureName);
+        if (value !== null) {
+            Ext.getCmp('procedureInfo').setValue(value);
+            return;
+        }
+        Ext.Ajax.request({
+            url: '/gen/loadProcedureInfo',
+            async: false,
+            method: 'GET',
+            params: {
+                'url': Ext.getCmp('dataSource').valueModels[0].data.URL,
+                'driver': Ext.getCmp('dataSource').valueModels[0].data.DRIVER,
+                'userName': Ext.getCmp('dataSource').valueModels[0].data.USERNAME,
+                'password': Ext.getCmp('dataSource').valueModels[0].data.PASSWORD,
+                'name': procedureName
+            },
+            callback: function (options, success, response) {
+                if (success) {
+                    var data = Ext.decode(response.responseText);
+                    Ext.getCmp('procedureInfo').setValue(data.result);
+                    sessionStorage.setItem(Ext.getCmp('dataSource').valueModels[0].data.ID + procedureName, data.result);
+                } else {
+                    Ext.MessageBox.alert('错误', '服务器错误', Ext.MessageBox.ERROR);
+                }
+            }
+        });
+    }
+
+    //添加暂存
+    function _temporaryStorage() {
+        var records = Ext.getCmp('proceduresPanel').getSelectionModel().getSelection();
+        if (records.length === 0) {
+            Ext.MessageBox.alert('警告', '请选择存储过程', Ext.MessageBox.WARNING);
+            return;
+        }
+        var temporaryStorageStore = Ext.data.StoreManager.lookup('temporaryStorageStore');
+        for (let i = 0; i < records.length; i++) {
+            if (records[i].data.STATUS !== 'INVALID' && temporaryStorageStore.find('NAME_', records[i].data.NAME) === -1) {
+                temporaryStorageStore.add({NAME_: records[i].data.NAME});
+            }
+        }
+    }
+
+    //生成代码
+    function _genProcedure() {
+        //模块名称验证
+        if (Ext.getCmp('moduleName').getValue() === "") {
+            Ext.MessageBox.alert('警告', '模块名称不能为空', Ext.MessageBox.WARNING);
+            return;
+        }
+        if (Ext.getCmp('moduleName').getValue().length <= 1) {
+            Ext.MessageBox.alert('警告', '模块名称长度不能为1', Ext.MessageBox.WARNING);
+            return;
+        }
+        //包名验证
+        if (Ext.getCmp('packageName').getValue() === "") {
+            Ext.MessageBox.alert('警告', '包名不能为空', Ext.MessageBox.WARNING);
+            return;
+        }
+        if (Ext.getCmp('packageName').getValue().length - Ext.getCmp('packageName').getValue().lastIndexOf('.') <= 2) {
+            Ext.MessageBox.alert('警告', '包名格式错误\n格式如: cn.newangels.gen', Ext.MessageBox.WARNING);
+            return;
+        }
+        //选择的数据校验
+        var records = Ext.getCmp('proceduresPanel').getSelectionModel().getSelection();
+        //暂存箱数据
+        var temporaryStorageStore = Ext.data.StoreManager.lookup('temporaryStorageStore');
+        if (records.length + temporaryStorageStore.getCount() === 0) {
+            Ext.MessageBox.alert('警告', '请选择存储过程', Ext.MessageBox.WARNING);
+            return;
+        }
+        if (records.length > 50) {
+            Ext.MessageBox.alert('警告', '最多选择50个存储过程', Ext.MessageBox.WARNING);
+            return;
+        }
+
+        var procedureNameList = []; //存储过程名称集合，用于向后台接口传参
+        var inValieList = [];  //未编译的过程集合 用于前台提示用
+        for (var i = 0, length = records.length; i < length; i++) {
+            procedureNameList.push(records[i].data.NAME);
+            //不为空代表返回结果集有过程是否编译的值 oracle INVALID为未编译 VALID已编译
+            if (records[i].data.STATUS === 'INVALID') {
+                inValieList.push(records[i].data.NAME);
+            }
+        }
+        //暂存箱数据
+        for (var i = 0, length = temporaryStorageStore.getCount(); i < length; i++) {
+            procedureNameList.push(temporaryStorageStore.getAt(i).data.NAME_);
+        }
+        procedureNameList = [...new Set(procedureNameList)];
+        if (inValieList.length > 0) {
+            Ext.MessageBox.show({
+                title: '请确认',
+                msg: inValieList.toString() + '过程未编译, 是否生成代码',
+                buttons: Ext.MessageBox.YESNO,
+                icon: Ext.MessageBox.QUESTION,
+                fn: function (btn) {
+                    if (btn === 'yes') {
+                        _genProcedureAjax(procedureNameList);
+                    }
+                }
+            });
+        } else {
+            _genProcedureAjax(procedureNameList);
+        }
+        _emptyTemporaryStorage();
+    }
+
+    //一键生成代码
+    function _onekeyGenProcedure() {
+        var moduleName = Ext.getCmp('moduleName').getValue();
+        var packageName = Ext.getCmp('packageName').getValue();
+        Ext.getCmp('moduleName').setValue('code');
+        Ext.getCmp('packageName').setValue('cn.newangels.gen');
+        _genProcedure();
+        Ext.getCmp('moduleName').setValue(moduleName);
+        Ext.getCmp('packageName').setValue(packageName);
+    }
+
+    //调后生成代码接口
+    function _genProcedureAjax(procedureNameList) {
+        Ext.Ajax.request({
+            url: '/gen/genProcedure',
+            async: false,
+            method: 'POST',
+            params: {
+                'moduleName': Ext.getCmp('moduleName').getValue(),//模块名称
+                'genProcedureModelType': Ext.getCmp('genProcedureModelType').getValue(),//生成代码模版类型
+                'nameConventType': Ext.getCmp('nameConventType').getValue(),//命名规范类型
+                'packageName': Ext.getCmp('packageName').getValue(),//包名
+                'author': Ext.getCmp('author').getValue(),//作者
+                'url': Ext.getCmp('dataSource').valueModels[0].data.URL,
+                'driver': Ext.getCmp('dataSource').valueModels[0].data.DRIVER,
+                'userName': Ext.getCmp('dataSource').valueModels[0].data.USERNAME,
+                'password': Ext.getCmp('dataSource').valueModels[0].data.PASSWORD,
+                'procedureNameList': procedureNameList //存储过程名称集合
+            },
+            callback: function (options, success, response) {
+                if (success) {
+                    var data = Ext.decode(response.responseText);
+                    if (data.success) {
+                        var codeList = data.list;
+
+                        var win = Ext.create('Ext.window.Window', {
+                            title: '代码',
+                            modal: true,
+                            autoShow: true,
+                            maximized: true,
+                            maximizable: false,
+                            width: 560,
+                            height: 420,
+                            items: [],
+                        });
+
+                        var codeTabPanel = Ext.create('Ext.tab.Panel', {
+                            id: 'codeTabPanel',
+                            header: false,
+                            items: [],
+                            listeners: {
+                                beforetabchange: function (tabs, newTab, oldTab) {
+                                    if (newTab.id === 'download') {
+                                        _downloadCode(procedureNameList);
+                                    }
+                                    if (newTab.id === 'close') {
+                                        win.close();
+                                    }
+                                }
+                            }
+                        });
+
+                        for (var i = 0; i < codeList.length; i++) {
+                            var codeMap = codeList[i];
+                            var codeTab = {
+                                title: codeList[i],
+                                layout: 'fit',
+                                readOnly: true,
+                                items: [{
+                                    xtype: 'textareafield',
+                                    name: 'PARAMETER_MAP_',
+                                    width: '100%',
+                                    height: document.documentElement.clientHeight - 80,
+                                    value: data[codeMap]
+                                }],
+                            };
+                            codeTabPanel.add(codeTab);
+                        }
+                        codeTabPanel.add({
+                            id: 'download',
+                            title: '下载'
+                        });
+                        codeTabPanel.add({
+                            id: 'close',
+                            title: '关闭'
+                        });
+
+                        win.add(codeTabPanel);
+                    } else {
+                        Ext.MessageBox.alert('错误', data.message, Ext.MessageBox.ERROR);
+                    }
+                } else {
+                    Ext.MessageBox.alert('错误', '服务器错误', Ext.MessageBox.ERROR);
+                }
+            }
+        });
+    }
+
+    //下载
+    function _downloadCode(procedureNameList) {
+        var params = {
+            'moduleName': Ext.isEmpty(Ext.getCmp('moduleName').getValue()) ? 'code' : Ext.getCmp('moduleName').getValue(),//模块名称
+            'genProcedureModelType': Ext.getCmp('genProcedureModelType').getValue(),//生成代码模版类型
+            'nameConventType': Ext.getCmp('nameConventType').getValue(),//命名规范类型
+            'packageName': (Ext.getCmp('packageName').getValue().length - Ext.getCmp('packageName').getValue().lastIndexOf('.') <= 2) ? 'cn.newangels.gen' : Ext.getCmp('packageName').getValue(),//包名
+            'author': Ext.getCmp('author').getValue(),//作者
+            'url': Ext.getCmp('dataSource').valueModels[0].data.URL,
+            'driver': Ext.getCmp('dataSource').valueModels[0].data.DRIVER,
+            'userName': Ext.getCmp('dataSource').valueModels[0].data.USERNAME,
+            'password': Ext.getCmp('dataSource').valueModels[0].data.PASSWORD,
+            'procedureNameList': procedureNameList //存储过程名称集合
+        };
+
+        var body = Ext.getBody();
+        var form = body.createChild({
+            tag: 'form',
+            cls: 'x-hidden',
+            action: "/gen/downloadCode",
+            method: "get",
+            target: '_blank'
+        });
+
+        for (var key in params) {
+            if (!Ext.isArray(params[key])) {
+                form.createChild({
+                    tag: 'input',
+                    type: 'text',
+                    cls: 'x-hidden',
+                    name: key,
+                    value: params[key]
+                });
+            } else {
+                for (var i = 0; i < params[key].length; i++) {
+                    form.createChild({
+                        tag: 'input',
+                        type: 'text',
+                        cls: 'x-hidden',
+                        name: key,
+                        value: params[key][i]
+                    });
+                }
+            }
+        }
+
+        form.dom.submit();
+    }
+
+    //清除缓存 清除后进行一次查询
+    function _clearProceduresCache() {
+        _clearCaches('procedures');
+        Ext.getCmp("procedure").setValue("");
+        _selectProcedures();
+        _proceduresFilter();
+    }
+</script>
+</body>
+</html>
