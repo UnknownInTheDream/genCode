@@ -1,10 +1,9 @@
 package com.newangels.gen.controller;
 
+import cn.smallbun.screw.core.engine.EngineFileType;
 import com.newangels.gen.annotation.Log;
 import com.newangels.gen.base.BaseUtils;
-import com.newangels.gen.enums.DataBaseType;
-import com.newangels.gen.enums.GenProcedureModelType;
-import com.newangels.gen.enums.NameConventType;
+import com.newangels.gen.enums.*;
 import com.newangels.gen.util.cache.SimpleCache;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -45,7 +44,7 @@ public class CommonController {
         if (list == null) {
             list = new ArrayList<>();
             for (DataBaseType dataBaseType : DataBaseType.values()) {
-                if ("UNKNOW".equals(dataBaseType.toString())) {
+                if (DataBaseType.UNKNOW == dataBaseType) {
                     continue;
                 }
                 Map<String, Object> result = new HashMap<>(4);
@@ -79,6 +78,26 @@ public class CommonController {
     }
 
     /**
+     * 获取GenCodeModelType的数据
+     */
+    @GetMapping("selectGenCodeModelType")
+    @Log
+    public Map<String, Object> selectGenCodeModelType() {
+        List<Map<String, Object>> list = SimpleCache.get(SimpleCache.GENCODEMODELTYPE);
+        if (list == null) {
+            list = new ArrayList<>();
+            for (GenCodeModelType genCodeModelType : GenCodeModelType.values()) {
+                Map<String, Object> result = new HashMap<>(4);
+                result.put("CODE_", genCodeModelType.getCode());
+                result.put("NAME_", genCodeModelType.getDesc());
+                list.add(result);
+            }
+            SimpleCache.put(SimpleCache.GENCODEMODELTYPE, list);
+        }
+        return BaseUtils.success(list);
+    }
+
+    /**
      * 获取NameConventType的数据
      */
     @GetMapping("selectNameConventType")
@@ -94,6 +113,46 @@ public class CommonController {
                 list.add(result);
             }
             SimpleCache.put(SimpleCache.NAMECONVENTTYPE, list);
+        }
+        return BaseUtils.success(list);
+    }
+
+    /**
+     * 获取JavaClass的数据
+     */
+    @GetMapping("selectJavaClass")
+    @Log
+    public Map<String, Object> selectJavaClass() {
+        List<Map<String, Object>> list = SimpleCache.get(SimpleCache.JAVACLASS);
+        if (list == null) {
+            list = new ArrayList<>();
+            for (JavaClass javaClass : JavaClass.values()) {
+                Map<String, Object> result = new HashMap<>(4);
+                result.put("CODE_", javaClass.getCode());
+                result.put("NAME_", javaClass.toString());
+                list.add(result);
+            }
+            SimpleCache.put(SimpleCache.JAVACLASS, list);
+        }
+        return BaseUtils.success(list);
+    }
+
+    /**
+     * 获取EngineFileType的数据
+     */
+    @GetMapping("selectEngineFileType")
+    @Log
+    public Map<String, Object> selectEngineFileType() {
+        List<Map<String, Object>> list = SimpleCache.get(SimpleCache.ENGINEFILETYPE);
+        if (list == null) {
+            list = new ArrayList<>();
+            for (EngineFileType engineFileType : EngineFileType.values()) {
+                Map<String, Object> result = new HashMap<>(4);
+                result.put("CODE_", engineFileType.toString());
+                result.put("NAME_", engineFileType.getDesc());
+                list.add(result);
+            }
+            SimpleCache.put(SimpleCache.ENGINEFILETYPE, list);
         }
         return BaseUtils.success(list);
     }

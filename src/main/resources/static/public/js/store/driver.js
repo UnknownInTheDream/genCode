@@ -1,7 +1,7 @@
 /**
  * 驱动类
  *
- * @author ZhangXu
+ * @author TangLiang
  * @private
  */
 var driverStore = Ext.create("Ext.data.Store", {

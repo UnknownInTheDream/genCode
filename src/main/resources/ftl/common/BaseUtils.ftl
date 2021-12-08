@@ -112,7 +112,7 @@ public class BaseUtils {
      * @return 流转字节数组
      * @throws Exception IOException
      */
-    public static byte[] inputStreamToBytes(InputStream inputStream) throws Exception {
+    public static byte[] inputStreamToBytes(InputStream inputStream) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         byte[] content = new byte[65535];
         int length = 0;
@@ -130,7 +130,7 @@ public class BaseUtils {
      * @return 流转字符串
      * @throws Exception IOException
      */
-    public static String inputStreamToString(InputStream inputStream) throws Exception {
+    public static String inputStreamToString(InputStream inputStream) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         byte[] content = new byte[65535];
         int length = 0;
@@ -702,16 +702,29 @@ public class BaseUtils {
     }
 
     /**
-     * 返回成功信息(用于jdbc的结果返回)
+     * 返回成功信息(用于JdbcTemplate的结果返回)
      *
      * @param list 数据集
      * @return java.util.Map
      */
-    public static Map<String, Object> success(List list) {
+    public static <T> Map<String, Object> success(List<T> list) {
         Map<String, Object> result = new HashMap<>(4);
         result.put("data", list);
         result.put("success", true);
         return result;
+    }
+
+    /**
+     * 返回成功信息(用于JdbcTemplate的结果返回)
+     *
+     * @param list  数据集
+     * @param total 数据集总数
+     * @return java.util.Map
+     */
+     public static <T> Map<String, Object> success(List<T> list, int total) {
+         Map<String, Object> result = success(list);
+         result.put("total", total);
+         return result;
     }
 
     /**
@@ -774,6 +787,12 @@ public class BaseUtils {
         }
         if ("0:0:0:0:0:0:0:1".equals(ip)) {
             return "127.0.0.1";
+        }
+        //解决经过nginx转发, 配置了proxy_set_header x-forwarded-for $proxy_add_x_forwarded_for;带来的多ip的情况
+        if (ip != null && ip.length() > 15) {
+            if (ip.indexOf(",") > 0) {
+                ip = ip.substring(0, ip.indexOf(","));
+            }
         }
 
         return ip;
@@ -931,5 +950,20 @@ public class BaseUtils {
         cookie.setPath("/");
         if (maxAge > 0) cookie.setMaxAge(maxAge);
         response.addCookie(cookie);
+    }
+
+    /**
+     * 根据容量获取map初始大小
+     * 参考JDK8中putAll方法中的实现以及
+     * guava的newHashMapWithExpectedSize方法
+     *
+     * @param expectedSize 容量大小
+     */
+    public static int newHashMapWithExpectedSize(int expectedSize) {
+        if (expectedSize < 3) {
+            return 4;
+        } else {
+            return expectedSize < 1073741824 ? (int) ((float) expectedSize / 0.75F + 1.0F) : 2147483647;
+        }
     }
 }

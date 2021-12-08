@@ -14,6 +14,7 @@
     <script type="text/javascript" src="public/js/store/nameConventType.js"></script>
     <script type="text/javascript" src="public/js/store/yesNoStore.js"></script>
     <script type="text/javascript" src="public/js/store/selTypeStore.js"></script>
+    <script type="text/javascript" src="public/js/store/orderTypeStore.js"></script>
     <script type="text/javascript" src="public/js/ajax/clearCaches.js"></script>
 </head>
 <body>
@@ -64,7 +65,7 @@
             autoLoad: false,//true为自动加载
             loading: false,//自动加载时必须为true
             pageSize: -1,
-            fields: ['COLUMN_NAME', 'DATA_TYPE', 'DATA_LENGTH', 'NULLABLE', 'DATA_DEFAULT', 'NUM_DISTINCT', 'LOW_VALUE', 'HIGH_VALUE', 'NUM_NULLS', 'LAST_ANALYZED', 'AVG_COL_LEN', 'COMMENTS', 'COLUMN_ID', 'IS_PRIMARY', 'IS_SEL', 'SELTYPE', 'IS_INS', 'IS_UPD'],
+            fields: ['COLUMN_NAME', 'DATA_TYPE', 'DATA_LENGTH', 'NULLABLE', 'DATA_DEFAULT', 'NUM_DISTINCT', 'LOW_VALUE', 'HIGH_VALUE', 'NUM_NULLS', 'LAST_ANALYZED', 'AVG_COL_LEN', 'COMMENTS', 'COLUMN_ID', 'IS_PRIMARY', 'IS_SEL', 'SELTYPE', 'IS_INS', 'IS_UPD', 'ORDERTYPE'],
             proxy: {
                 url: '/gen/selectTableInfo',
                 type: 'ajax',
@@ -81,7 +82,7 @@
             listeners: {
                 load: function (store, records, successful, eOpts) {
                     store.each(function (record) {
-                        if (record.get("COLUMN_ID") === 1 && record.get("COLUMN_NAME").indexOf("ID") > 0) {
+                        if (record.get("COLUMN_ID") === 1 && record.get("COLUMN_NAME").indexOf("ID") >= 0) {
                             record.set('IS_PRIMARY', 'Y');
                             record.set('IS_SEL', 'N');
                             record.set('IS_UPD', 'N');
@@ -93,6 +94,7 @@
                             record.set('SELTYPE', '0');
                         }
                         record.set('IS_INS', 'Y');
+                        record.set('ORDERTYPE', '');
                     })
                 }
             }
@@ -132,6 +134,7 @@
                     select: function (combo, records) {
                         Ext.getCmp("tableName").setValue("");
                         _selectTable();
+                        TABLE_NAME = "";//重置全局变量
                     }
                 }
             }, {
@@ -184,8 +187,7 @@
                 valueField: 'CODE_',
                 displayField: 'NAME_',
                 fieldLabel: '规范名称',
-                forceSelection: true,
-                value: '2'
+                forceSelection: true
             }]
         });
 
@@ -227,8 +229,8 @@
                     //连续两次点击同一个表名 只执行一次查询
                     if (record.data.TABLE_NAME !== TABLE_NAME) {
                         _selectTableInfo(record.data.TABLE_NAME);
+                        TABLE_NAME = record.data.TABLE_NAME;
                     }
-                    TABLE_NAME = record.data.TABLE_NAME;
                 }
             },
             viewConfig: {
@@ -359,6 +361,18 @@
                 editor: {
                     xtype: 'combo',
                     store: selTypeStore,
+                    queryMode: 'local',
+                    valueField: 'CODE_',
+                    displayField: 'NAME_',
+                    forceSelection: true
+                }
+            }, {
+                text: '排序类型',
+                width: 80,
+                dataIndex: 'ORDERTYPE',
+                editor: {
+                    xtype: 'combo',
+                    store: orderTypeStore,
                     queryMode: 'local',
                     valueField: 'CODE_',
                     displayField: 'NAME_',
@@ -508,14 +522,13 @@
         }
 
         _selectdataSource();
-        //_selectTable();
+        _initGenFormParam();
         Ext.getBody().unmask();
     }
 
     //查询数据源
     function _selectdataSource() {
         var dataSourceStore = Ext.data.StoreManager.lookup('dataSourceStore');
-        dataSourceStore.proxy.extraParams = {};
         dataSourceStore.load();
     }
 
@@ -570,7 +583,7 @@
         var result = tableInfoStore.load().getProxy().getReader();
         if (!result.jsonData.success) {
             tableInfoStore.removeAll();
-            Ext.MessageBox.alert('错误', result.jsonData.message, Ext.MessageBox.ERROR);
+            Toast.alert('错误', result.jsonData.message, 3000);
         }
     }
 
@@ -620,6 +633,8 @@
         var selType = [];
         var insParamIndex = [];
         var updParamIndex = [];
+        var orderParamIndex = [];
+        var orderParamTypes = [];
 
         var records = Ext.getCmp('tableInfoPanel').store.data.items;
 
@@ -636,10 +651,16 @@
             records[i].data.SELTYPE !== "" ? selType.push(records[i].data.SELTYPE) : 0;
             records[i].data.IS_INS === "Y" ? insParamIndex.push(records[i].data.COLUMN_ID - 1) : 0;
             records[i].data.IS_UPD === "Y" ? updParamIndex.push(records[i].data.COLUMN_ID - 1) : 0;
+            records[i].data.ORDERTYPE !== "" ? orderParamIndex.push(records[i].data.COLUMN_ID - 1) : 0;
+            records[i].data.ORDERTYPE !== "" ? orderParamTypes.push(records[i].data.ORDERTYPE) : 0;
         }
 
         if (params.length === 0) {
             Ext.MessageBox.alert('警告', '不支持当前数据库表生成过程', Ext.MessageBox.WARNING);
+            return;
+        }
+        if (priParamIndex.length === 0) {
+            Ext.MessageBox.alert('警告', '缺少主键, 无法生成存储过程', Ext.MessageBox.WARNING);
             return;
         }
 
@@ -659,7 +680,10 @@
                 'selParamsIndex': selParamsIndex,
                 'selType': selType,
                 'insParamIndex': insParamIndex,
-                'updParamIndex': updParamIndex
+                'updParamIndex': updParamIndex,
+                'orderParamIndex': orderParamIndex,
+                'orderParamTypes': orderParamTypes,
+                'random': Math.random()
             },
             callback: function (options, success, response) {
                 if (success) {
@@ -684,6 +708,13 @@
                             items: [],
                             listeners: {
                                 beforetabchange: function (tabs, newTab, oldTab) {
+                                    if (newTab.id === 'copy') {
+                                        var text = '';
+                                        for (var i = 0; i < codeList.length; i++) {
+                                            text += Ext.getCmp('tab_' + codeList[i]).items.items[0].value + '\n\n';
+                                        }
+                                        _copyText(text);
+                                    }
                                     if (newTab.id === 'close') {
                                         win.close();
                                     }
@@ -695,6 +726,7 @@
                             var codeMap = codeList[i];
                             var codeTab = {
                                 title: codeList[i],
+                                id: 'tab_' + codeList[i],
                                 layout: 'fit',
                                 readOnly: true,
                                 items: [{
@@ -708,11 +740,16 @@
                             codeTabPanel.add(codeTab);
                         }
                         codeTabPanel.add({
+                            id: 'copy',
+                            title: '复制到剪切板'
+                        });
+                        codeTabPanel.add({
                             id: 'close',
                             title: '关闭'
                         });
 
                         win.add(codeTabPanel);
+                        _recordGenFormParam();
                     } else {
                         Ext.MessageBox.alert('错误', data.message, Ext.MessageBox.ERROR);
                     }
@@ -792,6 +829,24 @@
             record.set('IS_SEL', 'N');
             record.set('SELTYPE', '');
         })
+    }
+
+    //记录本地历史formPanel的值
+    function _recordGenFormParam() {
+        if (!window.localStorage) return;
+        localStorage.setItem("gendbt.nameConventType", Ext.getCmp('nameConventType').getValue());
+        localStorage.setItem("gendbt.dataSource", Ext.getCmp('dataSource').getValue());
+    }
+
+    //初始化为历史值
+    function _initGenFormParam() {
+        if (!window.localStorage) return;
+        if (!localStorage.hasOwnProperty("gendbt.nameConventType")) return;
+        Ext.getCmp('nameConventType').setValue(localStorage.getItem("gendbt.nameConventType"));
+        //方便平滑升级，提高用户体验，防止因为新增功能带来的datasource初始化问题
+        if (localStorage.hasOwnProperty("gendbt.dataSource")) {
+            Ext.getCmp('dataSource').setValue(localStorage.getItem("gendbt.dataSource"));
+        }
     }
 </script>
 </body>

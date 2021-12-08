@@ -9,10 +9,10 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.newangels</groupId>
-    <artifactId>genCode</artifactId>
-    <version>2.0</version>
+    <artifactId>gen</artifactId>
+    <version>3.2</version>
     <packaging>jar</packaging>
-    <name>genCode</name>
+    <name>gen</name>
     <description>存储过程生成</description>
     <properties>
         <java.version>1.8</java.version>
@@ -33,11 +33,21 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-tomcat</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-undertow</artifactId>
         </dependency>
         <dependency>
             <groupId>com.alibaba</groupId>
             <artifactId>druid-spring-boot-starter</artifactId>
-            <version>1.1.9</version>
+            <version>1.2.8</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -73,6 +83,14 @@
             <artifactId>mariadb-java-client</artifactId>
             <version>2.1.2</version>
         </dependency>
+        <!-- 在1.0.5版本基础上实现了excel文档 -->
+        <dependency>
+            <groupId>cn.smallbun.screw</groupId>
+            <artifactId>screw-core</artifactId>
+            <version>1.0.6-SNAPSHOT</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/src/main/resources/lib/screw-core-1.0.6-SNAPSHOT.jar</systemPath>
+        </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
@@ -98,6 +116,44 @@
                             <artifactId>lombok</artifactId>
                         </exclude>
                     </excludes>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>pl.project13.maven</groupId>
+                <artifactId>git-commit-id-plugin</artifactId>
+                <configuration>
+                    <!--日期格式;默认值:dd.MM.yyyy '@' HH:mm:ss z;-->
+                    <dateFormat>yyyyMMddHHmmss</dateFormat>
+                    <!--,构建过程中,是否打印详细信息;默认值:false;-->
+                    <verbose>true</verbose>
+                    <!-- ".git"文件路径;默认值:${project.basedir}/.git; -->
+                    <dotGitDirectory>${project.basedir}/.git</dotGitDirectory>
+                    <!--若项目打包类型为pom,是否取消构建;默认值:true;-->
+                    <skipPoms>false</skipPoms>
+                    <!--是否生成"git.properties"文件;默认值:false;-->
+                    <generateGitPropertiesFile>true</generateGitPropertiesFile>
+                    <!--指定"git.properties"文件的存放路径(相对于${project.basedir}的一个路径);-->
+                    <generateGitPropertiesFilename>${project.build.outputDirectory}/git.properties</generateGitPropertiesFilename>
+                    <!--".git"文件夹未找到时,构建是否失败;若设置true,则构建失败;若设置false,则跳过执行该目标;默认值:true;-->
+                    <failOnNoGitDirectory>true</failOnNoGitDirectory>
+                    <format>json</format>
+                    <!--git描述配置,可选;由JGit提供实现;-->
+                    <gitDescribe>
+                        <!--是否生成描述属性-->
+                        <skip>false</skip>
+                        <!--提交操作未发现tag时,仅打印提交操作ID,-->
+                        <always>false</always>
+                        <!--提交操作ID显式字符长度,最大值为:40;默认值:7;
+                            0代表特殊意义;后面有解释;
+                        -->
+                        <abbrev>7</abbrev>
+                        <!--构建触发时,代码有修改时(即"dirty state"),添加指定后缀;默认值:"";-->
+                        <dirty>-dirty</dirty>
+                        <!--always print using the "tag-commits_from_tag-g_commit_id-maybe_dirty" format, even if "on" a tag.
+                            The distance will always be 0 if you're "on" the tag.
+                        -->
+                        <forceLongFormat>false</forceLongFormat>
+                    </gitDescribe>
                 </configuration>
             </plugin>
         </plugins>

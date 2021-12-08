@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>缓存管理</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"/>
+    <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" type="text/css" href="public/css/ext-all.css"/>
+    <link rel="stylesheet" type="text/css" href="public/css/ext-zh_CN.css"/>
+    <link rel="stylesheet" type="text/css" href="public/css/util/changeRowClass.css"/>
+    <script type="text/javascript" src="public/js/ext-all.js"></script>
+    <script type="text/javascript" src="public/js/ext-lang-zh_CN.js"></script>
+    <script type="text/javascript" src="public/js/base.js"></script>
+    <script type="text/javascript" src="public/js/ajax/clearCaches.js"></script>
+</head>
+<body>
+<script>
+    Ext.onReady(function () {
+        Ext.getBody().mask('加载中...');
+        Ext.QuickTips.init();
+
+        var cacheStore = Ext.create('Ext.data.Store', {
+            storeId: 'cacheStore',
+            autoLoad: false,//true为自动加载
+            loading: false,//自动加载时必须为true
+            pageSize: -1,
+            fields: ['key', 'value'],
+            proxy: {
+                url: '/gen/selectCaches',
+                type: 'ajax',
+                async: true,//false=同步.
+                actionMethods: {
+                    read: 'GET'
+                },
+                extraParams: {},
+                reader: {
+                    type: 'json',
+                    root: 'result'
+                }
+            }
+        });
+
+        var westFormPanel = Ext.create('Ext.form.Panel', {
+            id: 'westFormPanel',
+            layout: 'column',
+            frame: true,
+            border: false,
+            defaults: {
+                labelAlign: 'right',
+                labelWidth: 100,
+                inputWidth: 140,
+                margin: '4,0,0,0'
+            },
+            items: [{
+                xtype: 'button',
+                text: '查询',
+                icon: 'public/image/btn/search.png',
+                handler: _selectCaches
+            }, {
+                xtype: 'button',
+                text: '查看数据库连接缓存',
+                icon: 'public/image/btn/search.png',
+                handler: _dataSourceCaches
+            }, {
+                xtype: 'button',
+                text: '清除所有缓存',
+                icon: 'public/image/btn/refresh.png',
+                handler: _clearProceduresCache
+            }]
+        });
+
+        var cachePanel = Ext.create('Ext.grid.Panel', {
+            id: 'cachePanel',
+            store: cacheStore,
+            columnLines: true,
+            selModel: {
+                selType: 'checkboxmodel',
+                mode: 'SINGLE'
+            },
+            frame: true,
+            columns: [{
+                xtype: 'rownumberer',
+                align: 'center',
+                width: 50
+            }, {
+                text: '缓存键值',
+                dataIndex: 'key',
+                flex: 1,
+                style: 'text-align: center;',
+                minWidth: 150,
+                renderer: function (value, meta, record) {
+                    meta.style = 'overflow:auto;padding: 3px 6px;text-overflow: ellipsis;white-space: nowrap;white-space:normal;line-height:20px;';
+                    return value;
+                }
+            }],
+            listeners: {
+                itemclick: function (view, record, item, index, e, eOpts) {
+                    _loadCacheInfo(record.data.value);
+                }
+            },
+            viewConfig: {
+                emptyText: '<div style="text-align: center; padding-top: 50px; font: italic bold 20px Microsoft YaHei;">没有数据</div>',
+                enableTextSelection: true
+            }
+        });
+
+        var westPanel = Ext.create('Ext.Panel', {
+            id: 'westPanel',
+            layout: 'border',
+            defaults: {
+                border: false
+            },
+            items: [{
+                region: 'north',
+                layout: 'fit',
+                items: [westFormPanel]
+            }, {
+                region: 'center',
+                layout: 'fit',
+                items: [cachePanel]
+            }]
+        });
+
+        var cacheFormPanel = Ext.create('Ext.form.Panel', {
+            id: 'cacheFormPanel',
+            layout: 'column',
+            frame: true,
+            border: false,
+            items: [{
+                xtype: 'textareafield',
+                width: _getcacheInfoWidth(),
+                height: _getcacheInfoHeight(),
+                // minWidth: 1240,//默认环境1960
+                id: 'cacheInfo',
+            }]
+        });
+
+        var eastPanel = Ext.create('Ext.Panel', {
+            id: 'eastPanel',
+            layout: 'border',
+            defaults: {
+                border: false
+            },
+            items: [{
+                region: 'center',
+                layout: 'fit',
+                items: [cacheFormPanel]
+            }]
+        });
+
+        Ext.create('Ext.container.Viewport', {
+            layout: {
+                type: 'border',
+                regionWeights: {
+                    west: 1,
+                    north: -1,
+                    south: -1,
+                    east: 1
+                }
+            },
+            defaults: {
+                border: false
+            },
+            items: [{
+                region: 'west',
+                width: '35%',
+                layout: 'fit',
+                items: [westPanel]
+            }, {
+                region: 'center',
+                layout: 'fit',
+                items: [eastPanel]
+            }]
+        });
+
+        _init();
+    });
+
+    function _init() {
+        for (var i = 0; i < Ext.data.StoreManager.getCount(); i++) {
+            if (Ext.data.StoreManager.getAt(i).isLoading()) {
+                return;
+            }
+        }
+
+        _selectCaches();
+        Ext.getBody().unmask();
+    }
+
+    //查询缓存
+    function _selectCaches() {
+        var cacheStore = Ext.data.StoreManager.lookup('cacheStore');
+        cacheStore.proxy.extraParams = {};
+        cacheStore.load();
+    }
+
+    //加载缓存数据
+    function _loadCacheInfo(value) {
+        Ext.getCmp('cacheInfo').setValue(JSON.stringify(value, null, 2));
+    }
+
+    //查看数据库缓存信息
+    function _dataSourceCaches() {
+        Ext.Ajax.request({
+            url: '/gen/dataSourceCaches',
+            async: false,
+            method: 'GET',
+            params: {},
+            callback: function (options, success, response) {
+                if (success) {
+                    var data = Ext.decode(response.responseText);
+                    if (data.success === true) {
+                        Ext.getCmp('cacheInfo').setValue(JSON.stringify(data.result, null, 2));
+                    } else {
+                        Ext.MessageBox.alert('错误', data.message, Ext.MessageBox.ERROR);
+                    }
+                } else {
+                    Ext.MessageBox.alert('错误', '服务器错误', Ext.MessageBox.ERROR);
+                }
+            }
+        });
+    }
+
+    //清除所有缓存
+    function _clearProceduresCache() {
+        _clearCaches('');
+        Ext.getCmp('cacheInfo').setValue('');
+        var cacheStore = Ext.data.StoreManager.lookup('cacheStore');
+        cacheStore.removeAll();
+    }
+
+    //存储过程详情文本域宽度
+    function _getcacheInfoWidth() {
+        return document.documentElement.clientWidth * 0.65;
+    }
+
+    //存储过程详情文本域高度
+    function _getcacheInfoHeight() {
+        return document.documentElement.clientHeight;
+    }
+
+    //监听浏览器窗口变化，修改右侧文本域大小
+    window.onresize = function () {
+        Ext.getCmp('cacheInfo').setWidth(_getcacheInfoWidth());
+        Ext.getCmp('cacheInfo').setHeight(_getcacheInfoHeight());
+    };
+</script>
+</body>
+</html>

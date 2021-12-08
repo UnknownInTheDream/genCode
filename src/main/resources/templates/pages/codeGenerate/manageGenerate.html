@@ -221,8 +221,8 @@
             border: false,
             items: [{
                 xtype: 'textareafield',
-                width: document.documentElement.clientWidth * 0.65,
-                height: document.documentElement.clientHeight - 100,
+                width: _getprocedureInfoWidth(),
+                height: _getprocedureInfoHeight(),
                 // minWidth: 1240,//默认环境1960
                 id: 'procedureInfo',
             }, {
@@ -341,13 +341,13 @@
         }
 
         _selectdataSource();
+        _initGenFormParam();
         Ext.getBody().unmask();
     }
 
     //查询数据源
     function _selectdataSource() {
         var dataSourceStore = Ext.data.StoreManager.lookup('dataSourceStore');
-        dataSourceStore.proxy.extraParams = {};
         dataSourceStore.load();
     }
 
@@ -459,6 +459,11 @@
 
         var procedureNameList = []; //存储过程名称集合，用于向后台接口传参
         var inValieList = [];  //未编译的过程集合 用于前台提示用
+        //暂存箱数据
+        for (var i = 0, length = temporaryStorageStore.getCount(); i < length; i++) {
+            procedureNameList.push(temporaryStorageStore.getAt(i).data.NAME_);
+        }
+        //表格数据
         for (var i = 0, length = records.length; i < length; i++) {
             procedureNameList.push(records[i].data.NAME);
             //不为空代表返回结果集有过程是否编译的值 oracle INVALID为未编译 VALID已编译
@@ -466,10 +471,7 @@
                 inValieList.push(records[i].data.NAME);
             }
         }
-        //暂存箱数据
-        for (var i = 0, length = temporaryStorageStore.getCount(); i < length; i++) {
-            procedureNameList.push(temporaryStorageStore.getAt(i).data.NAME_);
-        }
+        //去重
         procedureNameList = [...new Set(procedureNameList)];
         if (inValieList.length > 0) {
             Ext.MessageBox.show({
@@ -516,7 +518,8 @@
                 'driver': Ext.getCmp('dataSource').valueModels[0].data.DRIVER,
                 'userName': Ext.getCmp('dataSource').valueModels[0].data.USERNAME,
                 'password': Ext.getCmp('dataSource').valueModels[0].data.PASSWORD,
-                'procedureNameList': procedureNameList //存储过程名称集合
+                'procedureNameList': procedureNameList, //存储过程名称集合
+                'random': Math.random()
             },
             callback: function (options, success, response) {
                 if (success) {
@@ -577,6 +580,7 @@
                         });
 
                         win.add(codeTabPanel);
+                        _recordGenFormParam();
                     } else {
                         Ext.MessageBox.alert('错误', data.message, Ext.MessageBox.ERROR);
                     }
@@ -638,10 +642,51 @@
 
     //清除缓存 清除后进行一次查询
     function _clearProceduresCache() {
+        sessionStorage.clear();
         _clearCaches('procedures');
         Ext.getCmp("procedure").setValue("");
         _selectProcedures();
         _proceduresFilter();
+    }
+
+    //存储过程详情文本域宽度
+    function _getprocedureInfoWidth() {
+        return document.documentElement.clientWidth * 0.65;
+    }
+
+    //存储过程详情文本域高度
+    function _getprocedureInfoHeight() {
+        return document.documentElement.clientHeight - 100;
+    }
+
+    //监听浏览器窗口变化，修改右侧文本域大小
+    window.onresize = function () {
+        Ext.getCmp('procedureInfo').setWidth(_getprocedureInfoWidth());
+        Ext.getCmp('procedureInfo').setHeight(_getprocedureInfoHeight());
+    };
+
+    //记录本地历史formPanel的值
+    function _recordGenFormParam() {
+        if (!window.localStorage) return;
+        localStorage.setItem("gen.packageName", Ext.getCmp('packageName').getValue());
+        localStorage.setItem("gen.author", Ext.getCmp('author').getValue());
+        localStorage.setItem("gen.genProcedureModelType", Ext.getCmp('genProcedureModelType').getValue());
+        localStorage.setItem("gen.nameConventType", Ext.getCmp('nameConventType').getValue());
+        localStorage.setItem("gen.dataSource", Ext.getCmp('dataSource').getValue());
+    }
+
+    //初始化为历史值
+    function _initGenFormParam() {
+        if (!window.localStorage) return;
+        if (!localStorage.hasOwnProperty("gen.packageName")) return;
+        Ext.getCmp('packageName').setValue(localStorage.getItem("gen.packageName"));
+        Ext.getCmp('author').setValue(localStorage.getItem("gen.author"));
+        Ext.getCmp('genProcedureModelType').setValue(localStorage.getItem("gen.genProcedureModelType"));
+        Ext.getCmp('nameConventType').setValue(localStorage.getItem("gen.nameConventType"));
+        //方便平滑升级，提高用户体验，防止因为新增功能带来的datasource初始化问题
+        if (localStorage.hasOwnProperty("gen.dataSource")) {
+            Ext.getCmp('dataSource').setValue(localStorage.getItem("gen.dataSource"));
+        }
     }
 </script>
 </body>

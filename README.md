@@ -1,6 +1,10 @@
+## 项目介绍
 本项目功能：
 1. 存储过程生成java代码
 2. 根据表生成存储过程
+3. 表生成自增主键sql
+4. 生成数据库表文档
+5. 表生成代码
 
 ## 技术框架
 
@@ -26,21 +30,30 @@ druid监控账号密码默认都为admin
 
 运行后访问 [http://localhost:8669/gen](http://localhost:8669/gen)
 
-## 项目介绍
+## 数据库支持
+功能 | oracle | mysql | mariadb | sqlserver
+----|----|----|----|----
+数据源管理| √ | √ | √ | √
+存储过程生成代码| √ | √ | √ | √
+表生成存储过程| √ | - | - | -
+表生成自增主键| √ | √ | √ | -
+生成数据库表文档| √ | √ | √ | √
+表生成代码| √ | - | - | -
 
-存储过程生成代码功能支持oracle, mysql, mariadb, sqlserver数据库
-表生成存储过程目前仅支持oracle,部分支持mysql
-
+## 项目代码介绍
 * NameConventService 命名规范
 * DataBaseProcedureService 数据库对应获取过程相关的sql&数据库关键词对应的java类型等
 * DataBaseInfoService 数据源管理
 * DataBaseTableService 数据库表相关sql
 * AbstractGenProcedureModel 存储过程代码生成模板
 * AbstractTableToProcedure 表生成过程相关接口
+* AbstractGenCodeModel 表生成代码相关接口
+* DataBaseDocumentService 生成数据库文档
 
 ## 新增规范，模板以及数据库
 * 如需要添加自己的命名规范则新增 NameConventService 的实现类并新增枚举类NameConventType参数,
-* 如需要添加自己的代码模版则需要实现AbstractGenProcedureModel并新增枚举类GenProcedureModelType参数,
+* 如需要添加自己的存储过程代码模版则需要实现AbstractGenProcedureModel并新增枚举类GenProcedureModelType参数,
+* 如需要添加自己的后台等代码模版则需要实现AbstractGenCodeModel并新增枚举类GenCodeModelType参数,
 * 如需添加新的JDBC规范的数据库则实现DataBaseProcedureService，DataBaseTableService和AbstractTableToProcedure并新增枚举类DataBaseType参数，依赖中引入新的驱动
 
 ## 代码说明
@@ -51,5 +64,32 @@ druid监控账号密码默认都为admin
 5. 定时任务位于schedule文件夹下，目前任务只有每周五清空数据库连接池缓存
 6. SimpleCache类为简易缓存, 主要缓存一些不常变数据
 
-## 最后
+## 感谢
+
+- <a href="https://jb.gg/OpenSource"><img src="http://static.xkcoding.com/spring-boot-demo/064312.jpg" width="100px" alt="jetbrains">**
+  感谢 JetBrains 提供的免费开源 License**</a>
+
+## 其它
+
 如果有问题或者需求可以发送邮件或者提交Issues
+
+## CHANGELOG
+
+### 3.2
+1. 新增表生成代码功能以及页面
+2. maven集成git相关插件，新增git信息接口
+3. 前台新增form数据缓存，提高用户体验
+4. 修复表生成过程功能问题
+
+### 3.1
+1. 修复使用中发现的问题
+2. 日志配置修改为异步
+3. 新增复制等功能，优化体验
+
+### 3.0
+
+1. tomcat更换为undertow
+2. 新增生成数据库文档功能
+3. 修改2.0部分使用问题或功能问题
+4. 升级druid版本 1.1.9 -> 1.1.22
+5. 优化架构

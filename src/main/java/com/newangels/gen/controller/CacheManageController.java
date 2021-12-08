@@ -10,11 +10,9 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.ModelAndView;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 import static com.newangels.gen.base.CacheManage.CACHE_MAP;
 
@@ -28,6 +26,35 @@ import static com.newangels.gen.base.CacheManage.CACHE_MAP;
 @RestController
 @RequiredArgsConstructor
 public class CacheManageController {
+
+    /**
+     * 缓存管理页
+     */
+    @GetMapping("/manageCache")
+    public ModelAndView manageCache() {
+        return new ModelAndView("pages/cache/manageCache");
+    }
+
+    /**
+     * 查询项目缓存
+     */
+    @GetMapping("selectCaches")
+    @Log
+    public Map<String, Object> selectCaches() {
+        List<Map<String, Object>> list = new ArrayList<>();
+        for (Cache cache : CACHE_MAP.values()) {
+            Map<String, Object> map = cache.getMap();
+            Map<String, Object> result = new HashMap<>(4);
+            for (Map.Entry entry : map.entrySet()) {
+                String mapKey = (String) entry.getKey();
+                Object mapValue = entry.getValue();
+                result.put("key", mapKey);
+                result.put("value", mapValue);
+                list.add(result);
+            }
+        }
+        return BaseUtils.success(list);
+    }
 
     /**
      * 清除缓存

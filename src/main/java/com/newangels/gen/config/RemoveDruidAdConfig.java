@@ -23,7 +23,7 @@ import java.io.IOException;
 @Configuration
 @ConditionalOnWebApplication
 @AutoConfigureAfter(DruidDataSourceAutoConfigure.class)
-@ConditionalOnProperty(name = {"spring.datasource.druid.stat-view-servlet.enable", "gen.isdb"},
+@ConditionalOnProperty(name = {"spring.datasource.druid.stat-view-servlet.enabled", "gen.isdb"},
         havingValue = "true", matchIfMissing = true)
 public class RemoveDruidAdConfig {
 
@@ -54,7 +54,7 @@ public class RemoveDruidAdConfig {
                     throws IOException, ServletException {
                 chain.doFilter(request, response);
                 // 重置缓冲区，响应头不会被重置
-                response.resetBuffer();
+//                response.resetBuffer();
                 // 获取common.js
                 String text = Utils.readFromResource(filePath);
                 // 正则替换banner, 除去底部的广告信息

@@ -46,10 +46,6 @@ var returnValue;//子页返回值
 var SUCCESS = 'success';
 //必填样式 配合afterLabelTextTpl/beforeLabelTextTpl使用
 var required = '<span style="color:red;font-weight:bold" data-qtip="Required">*</span>';
-//控制成本中心默认显示
-var ckShow = true;
-//数量列默认隐藏
-var numShow = true;
 
 /**
  * 子页关闭方法
@@ -104,5 +100,34 @@ function _addEmptyData(store) {
 function _loadStore(store, extraParams) {
     store.proxy.extraParams = extraParams;
     store.load();
+}
+
+/**
+ * 新窗口打开, 代替window.open
+ * 通过创建a标签以及单击a标签事件完成
+ * @param id a标签id
+ * @param href a标签路径
+ * @private
+ */
+function _openLink(id, href) {
+    var a = document.createElement("a");
+    a.id = id;
+    a.target = '_blank';
+    a.href = href;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+//复制内容到剪切板
+function _copyText(text) {
+    var tag = document.createElement('textarea');
+    tag.setAttribute('id', 'cp_hgz_textarea');
+    tag.value = text;
+    document.getElementsByTagName('body')[0].appendChild(tag);
+    document.getElementById('cp_hgz_textarea').select();
+    document.execCommand('copy');
+    document.getElementById('cp_hgz_textarea').remove();
+    Toast.alert('信息', '已复制到剪切板', 2000);
 }
 
