@@ -15,7 +15,9 @@
     <script type="text/javascript" src="public/js/store/yesNoStore.js"></script>
     <script type="text/javascript" src="public/js/store/selTypeStore.js"></script>
     <script type="text/javascript" src="public/js/store/orderTypeStore.js"></script>
+    <script type="text/javascript" src="public/js/store/dataBaseStore.js"></script>
     <script type="text/javascript" src="public/js/ajax/clearCaches.js"></script>
+    <script type="text/javascript" src="public/js/view/preViewTableDetailedInfo.js"></script>
 </head>
 <body>
 <script>
@@ -25,33 +27,6 @@
     Ext.onReady(function () {
         Ext.getBody().mask('加载中...');
         Ext.QuickTips.init();
-
-        //数据源名称
-        var dataSourceStore = Ext.create('Ext.data.Store', {
-            storeId: 'dataSourceStore',
-            autoLoad: false,//true为自动加载
-            loading: false,//自动加载时必须为true
-            pageSize: -1,
-            fields: ['ID', 'URL', 'DRIVER', 'USERNAME', 'PASSWORD', 'NAME'],
-            proxy: {
-                url: '/gen/selectDataBaseInfo',
-                type: 'ajax',
-                async: false,
-                actionMethods: {
-                    read: 'GET'
-                },
-                extraParams: {},
-                reader: {
-                    type: 'json',
-                    root: 'result'
-                }
-            },
-            listeners: {
-                load: function (store, records, successful, eOpts) {
-                    Ext.getCmp('dataSource').select(store.first());
-                }
-            }
-        });
 
         //表名Store
         var tableStore = Ext.create('Ext.data.Store', {
@@ -82,7 +57,7 @@
             listeners: {
                 load: function (store, records, successful, eOpts) {
                     store.each(function (record) {
-                        if (record.get("COLUMN_ID") === 1 && record.get("COLUMN_NAME").indexOf("ID") >= 0) {
+                        if (record.get("COLUMN_ID") === 1 && record.get("COLUMN_NAME").toUpperCase().indexOf("ID") >= 0) {
                             record.set('IS_PRIMARY', 'Y');
                             record.set('IS_SEL', 'N');
                             record.set('IS_UPD', 'N');
@@ -124,7 +99,7 @@
             }, {
                 xtype: 'combo',
                 queryMode: 'local',
-                store: dataSourceStore,
+                store: dataBaseStore,
                 id: 'dataSource',
                 valueField: 'NAME',
                 displayField: 'NAME',
@@ -211,7 +186,11 @@
                 minWidth: 200,
                 dataIndex: 'TABLE_NAME',
                 renderer: function (value, metaData, record, rowIdx, colIdx, store, view) {
-                    return '<a href=javascript:_viewTableDetailedInfo(\'' + value + '\',\'' + encodeURIComponent(record.data.COMMENTS) + '\')>' + value + '</a>'
+                    if (_getDatabaseType() === 'oracle') {
+                        return '<a href=javascript:_preViewTableDetailedInfo(\'' + value + '\',\'' + encodeURIComponent(record.data.COMMENTS) + '\')>' + value + '</a>';
+                    } else {
+                        return value;
+                    }
                 }
             }, {
                 text: '备注',
@@ -521,37 +500,25 @@
             }
         }
 
-        _selectdataSource();
+        _addDataSourceLoad();
+        _selectDataBaseInfo();
         _initGenFormParam();
         Ext.getBody().unmask();
     }
 
-    //查询数据源
-    function _selectdataSource() {
-        var dataSourceStore = Ext.data.StoreManager.lookup('dataSourceStore');
-        dataSourceStore.load();
-    }
-
     //查询表数据
     function _selectTable() {
-        var jdbcUrl = Ext.getCmp('dataSource').valueModels[0].data.URL;
-        var schema = "";
-        if (jdbcUrl.startsWith("jdbc:mysql") || jdbcUrl.startsWith("jdbc:mariadb")) {
-            var endIndex = jdbcUrl.indexOf('?');
-            var startIndex = jdbcUrl.substring(0, endIndex).lastIndexOf('/');
-            schema = jdbcUrl.substring(startIndex + 1, endIndex);
-        }
         Ext.Ajax.request({
             url: '/gen/selectTables',
             async: false,
             method: 'GET',
             params: {
-                'url': jdbcUrl,
+                'url': Ext.getCmp('dataSource').valueModels[0].data.URL,
                 'driver': Ext.getCmp('dataSource').valueModels[0].data.DRIVER,
                 'userName': Ext.getCmp('dataSource').valueModels[0].data.USERNAME,
                 'password': Ext.getCmp('dataSource').valueModels[0].data.PASSWORD,
                 'name': Ext.getCmp('tableName').getValue(),
-                'schema': schema
+                'schema': _getSchema()
             },
             callback: function (options, success, response) {
                 var data = Ext.decode(response.responseText);
@@ -579,28 +546,13 @@
             'userName': Ext.getCmp('dataSource').valueModels[0].data.USERNAME,
             'password': Ext.getCmp('dataSource').valueModels[0].data.PASSWORD,
             'name': name,
+            'schema': _getSchema()
         };
         var result = tableInfoStore.load().getProxy().getReader();
         if (!result.jsonData.success) {
             tableInfoStore.removeAll();
             Toast.alert('错误', result.jsonData.message, 3000);
         }
-    }
-
-    //查看表详细信息
-    function _viewTableDetailedInfo(name, comment) {
-        returnValue = null;
-        win = Ext.create('Ext.window.Window', {
-            title: '表详细信息',
-            modal: true,
-            autoShow: true,
-            maximized: false,
-            maximizable: true,
-            autoScroll: true,
-            width: document.documentElement.clientWidth * 0.7,
-            height: document.documentElement.clientHeight * 0.8,
-            html: '<iframe src="/gen/viewTableDetailedInfo?name=' + name + '&url=' + Ext.getCmp('dataSource').valueModels[0].data.URL + '&driver=' + Ext.getCmp('dataSource').valueModels[0].data.DRIVER + '&userName=' + Ext.getCmp('dataSource').valueModels[0].data.USERNAME + '&password=' + Ext.getCmp('dataSource').valueModels[0].data.PASSWORD + '&comment=' + comment + '" style="width: 100%; height: 99%;" frameborder="0"></iframe>'
-        });
     }
 
     //清除缓存 清除后进行一次查询
@@ -682,8 +634,7 @@
                 'insParamIndex': insParamIndex,
                 'updParamIndex': updParamIndex,
                 'orderParamIndex': orderParamIndex,
-                'orderParamTypes': orderParamTypes,
-                'random': Math.random()
+                'orderParamTypes': orderParamTypes
             },
             callback: function (options, success, response) {
                 if (success) {

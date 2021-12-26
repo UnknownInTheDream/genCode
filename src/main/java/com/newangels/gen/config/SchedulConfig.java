@@ -1,9 +1,11 @@
 package com.newangels.gen.config;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.TaskScheduler;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
 /**
@@ -14,12 +16,14 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
  * @since: 1.0
  */
 @Configuration
-public class SchedulingConfig {
+@EnableScheduling
+@ConditionalOnProperty(prefix = "schedule", name = "enabled", havingValue = "true")
+public class SchedulConfig {
 
     @Value("${schedule.poolSize}")//设置核心线程数
     private int poolSize;
     @Value("${schedule.removeOnCancelPolicy}") //设置最大线程数
-    private boolean removeOnCancelPolicy;
+    private Boolean removeOnCancelPolicy;
     @Value("${schedule.threadNamePrefix}") //设置队列容量
     private String threadNamePrefix;
 
