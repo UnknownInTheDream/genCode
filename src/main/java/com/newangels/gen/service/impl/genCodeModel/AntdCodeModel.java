@@ -1,5 +1,6 @@
 package com.newangels.gen.service.impl.genCodeModel;
 
+import com.newangels.gen.base.BaseUtils;
 import com.newangels.gen.enums.GenCodeModelType;
 import com.newangels.gen.enums.JavaClass;
 import com.newangels.gen.factory.AbstractGenCodeModelFactory;
@@ -24,8 +25,8 @@ public class AntdCodeModel extends AbstractGenCodeModel {
     }
 
     @Override
-    protected void dealCommonCode(String tableName, String tableDesc, String moduleName, String moduleDesc, String packageName, String author, boolean hasDelBatch, boolean hasExport, List<String> primarys, Map<String, Object> objectMap) {
-        super.dealCommonCode(tableName, tableDesc, moduleName, moduleDesc, packageName, author, hasDelBatch, hasExport, primarys, objectMap);
+    protected void dealCommonCode(String tableName, String tableDesc, String moduleName, String moduleDesc, String packageName, String author, boolean hasDelBatch, boolean hasExport, boolean hasView, List<String> primarys, Map<String, Object> objectMap) {
+        super.dealCommonCode(tableName, tableDesc, moduleName, moduleDesc, packageName, author, hasDelBatch, hasExport, hasView, primarys, objectMap);
         //antd前台默认不支持批量删除
         objectMap.replace("hasDelBatch", true, false);
         //antd table默认只有一个主键
@@ -33,13 +34,18 @@ public class AntdCodeModel extends AbstractGenCodeModel {
     }
 
     @Override
-    protected void dealOtherCode(String tableName, String tableDesc, String moduleName, String moduleDesc, String packageName, String author, boolean hasDelBatch, boolean hasExport, List<String> params, List<String> paramDescs, List<String> paramJavaClass, List<String> primarys, List<String> primaryDesc, List<String> primaryJavaClass, List<String> selParams, List<String> selParamDescs, List<String> selParamJavaClass, List<Integer> selType, List<String> insParams, List<String> insParamDescs, List<String> insParamJavaClass, List<String> updParams, List<String> updParamDescs, List<String> updParamJavaClass, Map<String, Object> objectMap) {
+    protected void dealOtherCode(String tableName, String tableDesc, String moduleName, String moduleDesc, String packageName, String author, boolean hasDelBatch, boolean hasExport, boolean hasView, List<String> params, List<String> paramDescs, List<String> paramJavaClass, List<String> primarys, List<String> primaryDesc, List<String> primaryJavaClass, List<String> selParams, List<String> selParamDescs, List<String> selParamJavaClass, List<Integer> selType, List<String> insParams, List<String> insParamDescs, List<String> insParamJavaClass, List<String> updParams, List<String> updParamDescs, List<String> updParamJavaClass, Map<String, Object> objectMap) {
         StringJoiner tableParams = new StringJoiner(", ");
-        StringJoiner updateForm = new StringJoiner("\n      ");
+        StringJoiner viewForm = new StringJoiner("\n          ");
+        StringBuilder updateForm = new StringBuilder(params.size() * 100);
+        StringJoiner dataSourceType = new StringJoiner("\n    ");
         dealTableParam(tableParams, params, paramDescs, paramJavaClass, primarys, selParams, selType);
-        dealUpdateForm(updateForm, params, paramDescs, paramJavaClass, insParams, updParams, objectMap);
+        dealUpdateForm(updateForm, moduleName, params, paramDescs, paramJavaClass, primarys, insParams, updParams, objectMap);
+        dealViewForm(viewForm, dataSourceType, moduleName, params, paramDescs, paramJavaClass, primarys, hasView);
         objectMap.put("antd_tableParams", tableParams.toString());
-        objectMap.put("antd_updateForm", tableParams.toString());
+        objectMap.put("antd_updateForm", updateForm.toString());
+        objectMap.put("antd_viewForm", viewForm.toString());
+        objectMap.put("antd_dataSourceType", dataSourceType.toString());
     }
 
     @Override
@@ -117,16 +123,72 @@ public class AntdCodeModel extends AbstractGenCodeModel {
     /**
      * 处理新增修改页的Form代码
      *
-     * @param updateForm
-     * @param params
-     * @param paramDescs
-     * @param paramJavaClass
-     * @param insParams
-     * @param updParams
-     * @param objectMap
+     * @param updateForm     StringJoiner
+     * @param moduleName     模块名
+     * @param params         参数
+     * @param paramDescs     参数描述
+     * @param paramJavaClass 参数对应java类
+     * @param primarys       主键参数
+     * @param insParams      新增参数
+     * @param updParams      修改参数
+     * @param objectMap      代码模版值
      */
-    private void dealUpdateForm(StringJoiner updateForm, List<String> params, List<String> paramDescs, List<String> paramJavaClass, List<String> insParams, List<String> updParams, Map<String, Object> objectMap) {
+    private void dealUpdateForm(StringBuilder updateForm, String moduleName, List<String> params, List<String> paramDescs, List<String> paramJavaClass, List<String> primarys, List<String> insParams, List<String> updParams, Map<String, Object> objectMap) {
+        //主键数量
+        int priNum = 0;
+        for (int i = 0, length = params.size(); i < length; i++) {
+            if (primarys.contains(params.get(i))) {
+                priNum++;
+                continue;
+            }
+            boolean paramIsIns = insParams.contains(params.get(i));
+            boolean paramIsUpd = updParams.contains(params.get(i));
+            JavaClass javaClass = JavaClass.fromCode(paramJavaClass.get(i));
+            if ((i + priNum) % 2 == 0) {
+                updateForm.append("      <ProForm.Group>\n");
+            }
+            updateForm.append("        <" + getProFormType(javaClass) + "\n" +
+                    "          label=\"" + paramDescs.get(i) + "\"\n" +
+                    "          width=\"lg\"\n" +
+                    "          name=\"" + params.get(i) + "\"\n" +
+                    getProFormDisabled(moduleName, paramIsIns, paramIsUpd) +
+                    getProFormOther(javaClass) +
+                    "          rules={[\n" +
+                    "            {\n" +
+                    "              required: false,\n" +
+                    "              message: '" + paramDescs.get(i) + "为必填项'\n" +
+                    "            }\n" +
+                    "          ]}\n" +
+                    "        />\n");
+            if (i == length - 1 || (i + priNum) % 2 == 1) {
+                updateForm.append("      </ProForm.Group>\n");
+            }
 
+        }
+    }
+
+    /**
+     * 处理查看页的代码
+     *
+     * @param viewForm       StringJoiner
+     * @param dataSourceType 查看页DataSourceType
+     * @param params         参数
+     * @param paramDescs     参数描述
+     * @param paramJavaClass 参数对应java类
+     * @param primarys       主键参数
+     */
+    private void dealViewForm(StringJoiner viewForm, StringJoiner dataSourceType, String moduleName, List<String> params, List<String> paramDescs, List<String> paramJavaClass, List<String> primarys, boolean hasView) {
+        if (!hasView) {
+            return;
+        }
+        for (int i = 0, length = params.size(); i < length; i++) {
+            //为主键不显示
+            if (primarys.contains(params.get(i))) {
+                continue;
+            }
+            dataSourceType.add(params.get(i) + "?: string;");
+            viewForm.add("<Descriptions.Item label=\"" + paramDescs.get(i) + "\">{" + BaseUtils.toLowerCase4Index(moduleName) + "." + params.get(i) + "}</Descriptions.Item>");
+        }
     }
 
     /**
@@ -147,6 +209,69 @@ public class AntdCodeModel extends AbstractGenCodeModel {
         return "select";
     }
 
+    /**
+     * 据对应java类获取ProForm类型
+     *
+     * @param javaClass 参数对应java类
+     */
+    private String getProFormType(JavaClass javaClass) {
+        if (javaClass == JavaClass.String) {
+            return "ProFormText";
+        } else if (javaClass == JavaClass.Double) {
+            return "ProFormDigit";
+        } else if (javaClass == JavaClass.Integer) {
+            return "ProFormDigit";
+        } else if (javaClass == JavaClass.Date) {
+            return "ProFormDatePicker";
+        }
+        return "ProFormText";
+    }
+
+    /**
+     * 据对应java类返回各自属性
+     *
+     * @param javaClass 参数对应java类
+     */
+    private String getProFormOther(JavaClass javaClass) {
+        if (javaClass == JavaClass.String) {
+            return "";
+        } else if (javaClass == JavaClass.Double) {
+            return "          //min={0}\n" +
+                    "          //max={99999}\n" +
+                    "          fieldProps={{ precision: 2 }}// 小数位数\n";
+        } else if (javaClass == JavaClass.Integer) {
+            return "          //min={0}\n" +
+                    "          //max={99999}\n" +
+                    "          fieldProps={{ precision: 0 }}// 小数位数\n";
+        } else if (javaClass == JavaClass.Date) {
+            return "";
+        }
+        return "";
+    }
+
+    /**
+     * 返回字段的disabled属性
+     *
+     * @param moduleName 模块名
+     * @param paramIsIns 是新增字段
+     * @param paramIsUpd 是修改字段
+     */
+    private String getProFormDisabled(String moduleName, boolean paramIsIns, boolean paramIsUpd) {
+        if (paramIsIns && paramIsUpd) {
+            //既是新增又是修改字段
+            return "";
+        } else if (paramIsIns && !paramIsUpd) {
+            //是新增不是修改字段
+            return "          disabled={" + BaseUtils.toLowerCase4Index(moduleName) + " !== undefined}\n";
+        } else if (!paramIsIns && paramIsUpd) {
+            //是修改不是新增字段
+            return "          disabled={" + BaseUtils.toLowerCase4Index(moduleName) + " === undefined}\n";
+        } else {
+            //不是新增不是修改字段
+            return "";
+        }
+    }
+
     @Override
     protected Map<String, Object> getResult(String driver, Map<String, Object> objectMap, Configuration configuration) {
         String module = objectMap.get("module").toString();
@@ -154,13 +279,14 @@ public class AntdCodeModel extends AbstractGenCodeModel {
         result.put("index.tsx", getIndex(configuration, objectMap));
         result.put("service.ts", getServiceTs(configuration, objectMap));
         result.put("Update" + module + ".tsx", getUpdateTsx(configuration, objectMap));
+        result.put("View" + module + ".tsx", getViewTsx(configuration, objectMap));
         return result;
     }
 
     @Override
     protected List<String> getTabList(Map<String, Object> objectMap) {
         String module = objectMap.get("module").toString();
-        return new ArrayList<>(Arrays.asList("controller", "service", "serviceImpl", "index.tsx", "service.ts", "Update" + module + ".tsx", "BaseUtils", "BaseSqlCriteria"));
+        return new ArrayList<>(Arrays.asList("controller", "service", "serviceImpl", "index.tsx", "service.ts", "Update" + module + ".tsx", "View" + module + ".tsx", "BaseUtils", "BaseSqlCriteria"));
     }
 
     /**
@@ -182,6 +308,13 @@ public class AntdCodeModel extends AbstractGenCodeModel {
      */
     private String getUpdateTsx(Configuration configuration, Map<String, Object> objectMap) {
         return getFtlModel(configuration, objectMap, "update.ftl");
+    }
+
+    /**
+     * 获取view.tsx
+     */
+    private String getViewTsx(Configuration configuration, Map<String, Object> objectMap) {
+        return getFtlModel(configuration, objectMap, "view.ftl");
     }
 
     @Override
