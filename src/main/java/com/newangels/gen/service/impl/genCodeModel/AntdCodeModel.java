@@ -116,7 +116,7 @@ public class AntdCodeModel extends AbstractGenCodeModel {
                         "      dataIndex: '" + params.get(i) + "',\n" +
                         (paramIsDate ? "      valueType: 'date',\n" : "") +
                         "      width: 150,\n" +
-                        "      hideInSearch: " + (position > -1 ? "true" : "false") + ",\n" +
+                        "      hideInSearch: " + (position > -1 ? "false" : "true") + ",\n" +
                         "      hideInTable: false\n" +
                         "    }");
             }
@@ -241,10 +241,12 @@ public class AntdCodeModel extends AbstractGenCodeModel {
         } else if (javaClass == JavaClass.Double) {
             return "          //min={0}\n" +
                     "          //max={99999}\n" +
+                    "          initialValue={0.00}\n" +
                     "          fieldProps={{ precision: 2 }}// 小数位数\n";
         } else if (javaClass == JavaClass.Integer) {
             return "          //min={0}\n" +
                     "          //max={99999}\n" +
+                    "          initialValue={0}\n" +
                     "          fieldProps={{ precision: 0 }}// 小数位数\n";
         } else if (javaClass == JavaClass.Date) {
             return "";
@@ -283,6 +285,7 @@ public class AntdCodeModel extends AbstractGenCodeModel {
         result.put(module + ".ts", getServiceTs(configuration, objectMap));
         result.put("Update" + module + ".tsx", getUpdateTsx(configuration, objectMap));
         result.put("View" + module + ".tsx", getViewTsx(configuration, objectMap));
+        result.put("request.tx", getRequestTx(configuration, objectMap));
         return result;
     }
 
@@ -300,6 +303,7 @@ public class AntdCodeModel extends AbstractGenCodeModel {
         if (hasView) {
             list.add("View" + module + ".tsx");
         }
+        list.add("request.tx");
         list.add("BaseUtils");
         list.add("BaseSqlCriteria");
         return list;
@@ -331,6 +335,13 @@ public class AntdCodeModel extends AbstractGenCodeModel {
      */
     private String getViewTsx(Configuration configuration, Map<String, Object> objectMap) {
         return getFtlModel(configuration, objectMap, "view.ftl");
+    }
+
+    /**
+     * 获取request.ts
+     */
+    private String getRequestTx(Configuration configuration, Map<String, Object> objectMap) {
+        return getFtlModel(configuration, objectMap, "request.ftl");
     }
 
     @Override

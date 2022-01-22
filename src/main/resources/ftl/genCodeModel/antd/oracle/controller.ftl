@@ -38,7 +38,7 @@ public class ${module}Controller {
     @Log
     public Map<String, Object> load${module}(${loadInParams}) {
         Map<String, Object> result = new HashMap<>(4);
-        result.put("result", ${module?uncap_first}Service.load${module}(${loadSqlParams}));
+        result.put("data", ${module?uncap_first}Service.load${module}(${loadSqlParams}));
         return BaseUtils.success(result);
     }
 
@@ -47,7 +47,7 @@ public class ${module}Controller {
      */
     @GetMapping("select${module}")
     @Log
-    public Map<String, Object> select${module}(${selConInParams}<#if selConInParams?length gt 1>, </#if>Integer current, Integer limit) {
+    public Map<String, Object> select${module}(${selConInParams}<#if selConInParams?length gt 1>, </#if>Integer current, Integer pageSize) {
         List<Map<String, Object>> list = ${module?uncap_first}Service.select${module}(${selSqlParams}<#if selSqlParams?length gt 1>, </#if>current, pageSize);
         int total = 0;
         if (pageSize != null && pageSize > 0) {
