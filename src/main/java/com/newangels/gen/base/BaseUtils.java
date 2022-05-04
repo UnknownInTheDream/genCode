@@ -12,7 +12,10 @@ import java.net.InetAddress;
 import java.net.URLEncoder;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -64,12 +67,7 @@ public class BaseUtils {
         response.reset();
         response.setHeader("Content-Disposition", "attachment; filename=" + fileName);// 下载模式
         @Cleanup ServletOutputStream out = response.getOutputStream();
-        byte[] content = new byte[65535];
-        int length = 0;
-        while ((length = inputStream.read(content)) != -1) {
-            out.write(content, 0, length);
-            out.flush();
-        }
+        inputStream.transferTo(out);
     }
 
     /**
@@ -148,10 +146,7 @@ public class BaseUtils {
      * @return java.util.Map
      */
     public static Map<String, Object> success(Object obj) {
-        Map<String, Object> result = new HashMap<>(4);
-        result.put("success", true);
-        result.put("result", obj);
-        return result;
+        return Map.of("success", true, "result", obj);
     }
 
     /**
@@ -170,10 +165,7 @@ public class BaseUtils {
      * @return java.util.Map
      */
     public static Map<String, Object> failed(String message) {
-        Map<String, Object> result = new HashMap<>(4);
-        result.put("success", false);
-        result.put("message", message);
-        return result;
+        return Map.of("success", false, "message", message);
     }
 
     /**

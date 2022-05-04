@@ -191,7 +191,6 @@ public class CommonController {
         }
         InputStream inputStream = resource.getInputStream();
         BaseUtils.download(inputStream, fileName, request, response);
-
     }
 
 }
